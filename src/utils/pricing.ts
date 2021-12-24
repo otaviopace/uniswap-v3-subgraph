@@ -51,7 +51,7 @@ export function sqrtPriceX96ToTokenPrices(sqrtPriceX96: BigInt, token0: Token, t
 export function getEthPriceInUSD(): BigDecimal {
   // fetch eth prices for each stablecoin
   let usdcPool = Pool.load(USDC_WETH_03_POOL) // dai is token0
-  if (usdcPool !== null) {
+  if (usdcPool) {
     return usdcPool.token0Price
   } else {
     return ZERO_BD
@@ -74,26 +74,34 @@ export function findEthPerToken(token: Token): BigDecimal {
   for (let i = 0; i < whiteList.length; ++i) {
     let poolAddress = whiteList[i]
     let pool = Pool.load(poolAddress)
-    if (pool.liquidity.gt(ZERO_BI)) {
-      if (pool.token0 == token.id) {
-        // whitelist token is token1
-        let token1 = Token.load(pool.token1)
-        // get the derived ETH in pool
-        let ethLocked = pool.totalValueLockedToken1.times(token1.derivedETH)
-        if (ethLocked.gt(largestLiquidityETH) && ethLocked.gt(MINIMUM_ETH_LOCKED)) {
-          largestLiquidityETH = ethLocked
-          // token1 per our token * Eth per token1
-          priceSoFar = pool.token1Price.times(token1.derivedETH as BigDecimal)
+    if (pool) {
+      if (pool.liquidity.gt(ZERO_BI)) {
+        if (pool.token0 == token.id) {
+          // whitelist token is token1
+          let token1 = Token.load(pool.token1)
+
+          if (token1) {
+            // get the derived ETH in pool
+            let ethLocked = pool.totalValueLockedToken1.times(token1.derivedETH)
+            if (ethLocked.gt(largestLiquidityETH) && ethLocked.gt(MINIMUM_ETH_LOCKED)) {
+              largestLiquidityETH = ethLocked
+              // token1 per our token * Eth per token1
+              priceSoFar = pool.token1Price.times(token1.derivedETH as BigDecimal)
+            }
+          }
         }
-      }
-      if (pool.token1 == token.id) {
-        let token0 = Token.load(pool.token0)
-        // get the derived ETH in pool
-        let ethLocked = pool.totalValueLockedToken0.times(token0.derivedETH)
-        if (ethLocked.gt(largestLiquidityETH) && ethLocked.gt(MINIMUM_ETH_LOCKED)) {
-          largestLiquidityETH = ethLocked
-          // token0 per our token * ETH per token0
-          priceSoFar = pool.token0Price.times(token0.derivedETH as BigDecimal)
+        if (pool.token1 == token.id) {
+          let token0 = Token.load(pool.token0)
+
+          if (token0) {
+            // get the derived ETH in pool
+            let ethLocked = pool.totalValueLockedToken0.times(token0.derivedETH)
+            if (ethLocked.gt(largestLiquidityETH) && ethLocked.gt(MINIMUM_ETH_LOCKED)) {
+              largestLiquidityETH = ethLocked
+              // token0 per our token * ETH per token0
+              priceSoFar = pool.token0Price.times(token0.derivedETH as BigDecimal)
+            }
+          }
         }
       }
     }
@@ -113,23 +121,26 @@ export function getTrackedAmountUSD(
   tokenAmount1: BigDecimal,
   token1: Token
 ): BigDecimal {
-  let bundle = Bundle.load('1')
-  let price0USD = token0.derivedETH.times(bundle.ethPriceUSD)
-  let price1USD = token1.derivedETH.times(bundle.ethPriceUSD)
+  let bundle = Bundle.load('1')!
 
-  // both are whitelist tokens, return sum of both amounts
-  if (WHITELIST_TOKENS.includes(token0.id) && WHITELIST_TOKENS.includes(token1.id)) {
-    return tokenAmount0.times(price0USD).plus(tokenAmount1.times(price1USD))
-  }
+  if (bundle) {
+    let price0USD = token0.derivedETH.times(bundle.ethPriceUSD)
+    let price1USD = token1.derivedETH.times(bundle.ethPriceUSD)
 
-  // take double value of the whitelisted token amount
-  if (WHITELIST_TOKENS.includes(token0.id) && !WHITELIST_TOKENS.includes(token1.id)) {
-    return tokenAmount0.times(price0USD).times(BigDecimal.fromString('2'))
-  }
+    // both are whitelist tokens, return sum of both amounts
+    if (WHITELIST_TOKENS.includes(token0.id) && WHITELIST_TOKENS.includes(token1.id)) {
+      return tokenAmount0.times(price0USD).plus(tokenAmount1.times(price1USD))
+    }
 
-  // take double value of the whitelisted token amount
-  if (!WHITELIST_TOKENS.includes(token0.id) && WHITELIST_TOKENS.includes(token1.id)) {
-    return tokenAmount1.times(price1USD).times(BigDecimal.fromString('2'))
+    // take double value of the whitelisted token amount
+    if (WHITELIST_TOKENS.includes(token0.id) && !WHITELIST_TOKENS.includes(token1.id)) {
+      return tokenAmount0.times(price0USD).times(BigDecimal.fromString('2'))
+    }
+
+    // take double value of the whitelisted token amount
+    if (!WHITELIST_TOKENS.includes(token0.id) && WHITELIST_TOKENS.includes(token1.id)) {
+      return tokenAmount1.times(price1USD).times(BigDecimal.fromString('2'))
+    }
   }
 
   // neither token is on white list, tracked amount is 0
