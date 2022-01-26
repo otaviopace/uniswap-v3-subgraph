@@ -300,6 +300,10 @@ export function handleBurn(event: BurnEvent): void {
 }
 
 export function handleSwap(event: SwapEvent): void {
+  if (event.block.number > BigInt.fromI32(13369651)) {
+    assert(false, "woah a deterministic failure :O")
+  }
+
   let bundle = Bundle.load('1')
 
   if (bundle) {
